@@ -160,28 +160,43 @@ def avg_pool_1x2(x):
     # 池化卷积结果（conv2d）池化层采用kernel大小为2*2，步数也为2，周围补0，取最大值。数据量缩小了4倍  
     return tf.nn.avg_pool(x, ksize=[1,1,2,1], strides=[1,1,2,1], padding='SAME')
 
+# 建立一个tensorflow的会话
 sess = tf.InteractiveSession()
+
+#官方没有给1dcnn的事例，我就用的2dcnn把高度设为1，这样导致出现问题？
+# 给x，y留出占位符，以便未来填充数据
 xs = tf.placeholder(tf.float32, [None, 16])
 ys = tf.placeholder(tf.float32, [None, 2])
 x_image = tf.reshape(xs, [-1,1,16,1])
 
+# 设置输入层的W和b
+w = tf.Variable(tf.zeros([16, 2]))
+b = tf.Variable(tf.zeros([2]))
+
+# 计算输出，采用的函数是softmax（输入的时候是one hot编码）
+y = tf.nn.softmax(tf.matmul(xs, w) + b)
+
+# 第一个卷积层，1x4的卷积核，输出向量是32维
 w_conv1 = weight_variable([1, 4,1,32])
 b_conv1 = bias_variable([32])
 h_conv1 = tf.nn.relu(conv2d(x_image, w_conv1) + b_conv1)
 h_pool1 = avg_pool_1x2(h_conv1)
 
+# 第二层卷积层，输入向量是32维，输出64维，还是1x4的卷积核
 w_conv2 = weight_variable([1, 4, 32, 64])
 b_conv2 = bias_variable([64])
 
 h_conv2 = tf.nn.relu(conv2d(h_pool1, w_conv2) + b_conv2)
 h_pool2 = avg_pool_1x2(h_conv2)
 
+# 全连接层的w和b
 w_fc1 = weight_variable([256, 256])
 b_fc1 = bias_variable([256])
-
+# 此时输出的维数是256维
 h_pool2_flat = tf.reshape(h_pool2, [-1, 256])
 h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flat, w_fc1) + b_fc1)
 
+# 设置dropout
 keep_prob = tf.placeholder("float")
 h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
 
@@ -190,6 +205,8 @@ b_fc2 = bias_variable([2])
 
 y_conv = tf.nn.softmax(tf.matmul(h_fc1_drop, w_fc2) + b_fc2)
 cross_entropy = -tf.reduce_sum(ys * tf.log(y_conv))
+# 设置误差代价以交叉熵的形式
+train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
 
 sess.run(tf.global_variables_initializer())
 
